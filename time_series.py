@@ -10,6 +10,7 @@ from keras.models import Sequential
 
 file_path = 'data/international-airline-passengers.csv'
 test_ratio = 0.1
+look_back = 3
 
 dataset = pd.read_csv(file_path, usecols=[1])
 
@@ -20,23 +21,29 @@ dataset = dataset.astype('float32')
 scaler = MinMaxScaler(feature_range=(0, 1))
 dataset = scaler.fit_transform(dataset)
 
-def create_dataset(dataset):
+def create_dataset(dataset, look_back=1):
     x, y = [], []
     for index, value in enumerate(dataset):
         try:
-            prediction = dataset[index+1]
+            current_index = index + 1
+            look_back_index = current_index - look_back
+            if look_back_index < 0:
+                raise IndexError
+            previous = dataset[look_back_index:current_index]
+            prediction = dataset[current_index]
+            x.append(previous)
+            y.append(prediction)
         except IndexError:
-            break
-        x.append(value)
-        y.append(prediction)
+            pass
+
     return np.array(x), np.array(y)
 
 train, test = train_test_split(dataset, test_size=test_ratio, shuffle=False)
 
-x_train, y_train = create_dataset(train)
+x_train, y_train = create_dataset(train, look_back=look_back)
 x_train = x_train.reshape(x_train.shape[0], 1, x_train.shape[1])
 
-x_test, y_test = create_dataset(test)
+x_test, y_test = create_dataset(test, look_back=look_back)
 x_test = x_test.reshape(x_test.shape[0], 1, x_test.shape[1])
 
 model = Sequential()
@@ -57,10 +64,8 @@ test_predict = scaler.inverse_transform(test_predict)
 y_test = scaler.inverse_transform(y_test)
 
 plt.plot(train_predict, label='train_predict')
-plt.plot(scaler.inverse_transform(x_train.reshape(x_train.shape[0],
-    x_train.shape[1])), label='x_train')
+plt.plot(scaler.inverse_transform(x_train[:, 0, look_back-1:]), label='x_train')
 plt.plot(test_predict, label='test_predict')
-plt.plot(scaler.inverse_transform(x_test.reshape(x_test.shape[0],
-    x_test.shape[1])), label='x_test')
+plt.plot(scaler.inverse_transform(x_test[:, 0, look_back-1:]), label='x_test')
 plt.legend()
 plt.show()
